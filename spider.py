@@ -29,7 +29,7 @@ def getData(baseurl):
 
         #每次获取到网页信息后需逐一解析数据
         soup = BeautifulSoup(html, "html.parser")
-        for item in soup.find_all("div", class_="item"): #查找属性class=item的div, 返回列表
+        for item in soup.find_all("div", class_="item"): #查找属性class=item的div, 返回列表, 注意有下划线
             # print(item) #测试：查看电影item全部信息
             data = []
             item = str(item)
@@ -69,7 +69,7 @@ def getData(baseurl):
             data.append(bd.strip()) #去掉前后空格
 
             datalist.append(data) #处理好的一部电影信息放入datalist
-    print(datalist) #测试
+    # print(datalist) #测试
     return datalist
 
 #得到制定一个url网页内容
@@ -90,13 +90,74 @@ def askURL(url):
     return html
 
 
-#保存数据
-def saveDate(savePath):
-    pass
+#保存数据 excel
+def saveDate(datalist,savePath):
+    workbook = xlwt.Workbook(encoding='utf-8', style_compression=0)
+    worksheet = workbook.add_sheet("doubanMovies", cell_overwrite_ok=True) # 单元格可以覆盖
+    col = ("LINK", "IMG","Ctitle","Otitle","RATING","JUDGE","QUOTE","BD") # 设定列标题
+    for i in range(0,8):
+        worksheet.write(0, i, col[i])
+    for i in range(0, 250):
+        print("%d"%i)
+        data = datalist[i] #一部电影的所有信息
+        for j in range(0, 8):
+                worksheet.write(i+1, j, data[j])
+    workbook.save(savePath)
+
+#保存数据 db
+def saveDate2DB(datalist, savepath):
+    init_db(savepath)
+    conn = sqlite3.connect(savepath)
+    c = conn.cursor()
+
+    for data in datalist: #二维数组
+        for index in range(len(data)): # 获取每一部电影的八个信息
+            data[index] = '"' + data[index] + '"' # 字符串拼接：前后加双引号将列表内容转换为字符串插入数据表
+
+        sql= '''
+            insert into MoviesTop250(
+            LINK, IMG, Ctitle, Otitle, RATING, JUDGE, QUOTE, BD
+            )values(%s)''' % ",".join(data) #格式占位符，join逗号拼接
+        # print(sql)
+        c.execute(sql)
+        conn.commit()
+    conn.close()
+
+def init_db(savepath):
+    conn = sqlite3.connect(savepath) #打开数据库
+    c = conn.cursor() #获取游标
+    #创建数据表
+    sql = '''
+        create table MoviesTop250(
+            id integer primary key autoincrement, 
+            LINK MESSAGE_TEXT,
+            IMG MESSAGE_TEXT,
+            Ctitle message_text,
+            Otitle message_text,
+            RATING real,
+            JUDGE real,
+            QUOTE message_text,
+            BD message_text
+        );
+    '''
+    c.execute(sql) # 执行sql语句
+    conn.commit() # 提交数据库操作
+    conn.close() # 关闭连接
+
+def main():
+    # 1.爬取网页
+    # 2.逐一解析数据
+    # 3.保存数据(excel/sqlite)
+    baseurl = "https://movie.douban.com/top250?start="
+    datalist = getData(baseurl)
+
+    # savePath = "doubanTop250movies.xls"
+    # saveDate(datalist, savePath)
+
+    savepath = "doubanTop250movies.db"
+    saveDate2DB(datalist, savepath)
 
 if __name__ == '__main__':
-    #1.爬取网页
-    #2.逐一解析数据
-    #3.保存数据
-
-    getData("https://movie.douban.com/top250?start=")
+    main()
+    # init_db("movietest.db")
+    print("done!")
